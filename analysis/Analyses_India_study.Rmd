@@ -1,0 +1,594 @@
+---
+title: "Analyses_prolific_error"
+author: "Anne"
+date: "4/3/2020"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '1'
+lang: en-US
+editor_options: 
+  chunk_output_type: inline
+  fig_caption: yes
+  fig_width: 4 
+  fig_height: 4 
+---
+
+# Preparation
+
+```{r loading_packs, eval = T}
+knitr::opts_chunk$set(echo = FALSE, results = TRUE, message = FALSE, warning = FALSE, error = FALSE)
+                      
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages <- c("mediation", "foreign", "tidyverse","stargazer","multicon", "ggplot2", "plyr", "reshape2", "readxl", 
+              "scales", "grid", "tidyLPA", "Rcpp", "naniar", "dplyr", "car", "mice", "semTools",
+              "rstudioapi", "labelled", "modi", "semPlot", "kulife", "interactions", "emmeans", "splitstackshape")
+ipak(packages)
+```
+
+```{r setwd, eval = F}
+library(rstudioapi)
+ set_wd <- function() {
+   current_path <- getActiveDocumentContext()$path 
+   setwd(dirname(current_path ))
+   print( getwd() )
+ }
+ set_wd()
+ 
+ getwd()
+```
+
+```{r loading_data, eval = T}
+library(haven)
+IndiaT3T4 <- read_sav("../Data/IndiaT3T4.sav")
+IndiaT3T4_2 <- read_sav("../Data/IndiaT3T4_2.sav")
+
+names(IndiaT3T4) <- tolower(names(IndiaT3T4) )
+names(IndiaT3T4_2) <- tolower(names(IndiaT3T4_2) )
+```
+
+# Data preparation
+
+## df 1
+
+```{r}
+## attention check items
+# attention check items 
+IndiaT3T4 <- IndiaT3T4 %>% 
+  dplyr::rename(
+    att_1_t2 = t2chal_2,
+    att_2_t2 = t2accri_4,
+    att_3_t2 = t2thriv_7,
+    att_1_t3 = t3chal_2,
+    att_2_t3 = t3accri_4,
+    att_3_t3 = t3thriv_7,
+    att_1_t4 = t4chal_2,
+    att_2_t4 = t4accri_4,
+    att_3_t4 = t4thriv_7)
+
+IndiaT3T4 <- IndiaT3T4 %>% dplyr::select(-matches("att_._"))
+
+## rename items 
+IndiaT3T4 <- IndiaT3T4 %>% dplyr::rename(
+  t2chal_2 = t2chal_3,
+  t2chal_3 = t2chal_4,
+  t2accri_4 = t2accri_5,
+  t2accri_5 = t2accri_6,
+  t2accri_6 = t2accri_7,
+  t2thriv_7 = t2thriv_8,
+  t2thriv_8 = t2thriv_9,
+  t2thriv_9 = t2thriv_10,
+  t2thriv_10 = t2thriv_11,
+  t3chal_2 = t3chal_3,
+  t3chal_3 = t3chal_4,
+  t3accri_4 = t3accri_5,
+  t3accri_5 = t3accri_6,
+  t3accri_6 = t3accri_7,
+  t3thriv_7 = t3thriv_8,
+  t3thriv_8 = t3thriv_9,
+  t3thriv_9 = t3thriv_10,
+  t3thriv_10 = t3thriv_11,
+  t4chal_2 = t4chal_3,
+  t4chal_3 = t4chal_4,
+  t4accri_4 = t4accri_5,
+  t4accri_5 = t4accri_6,
+  t4accri_6 = t4accri_7,
+  t4thriv_7 = t4thriv_8,
+  t4thriv_8 = t4thriv_9,
+  t4thriv_9 = t4thriv_10,
+  t4thriv_10 = t4thriv_11,
+)
+
+
+# remove not self-employed
+IndiaT3T4 <- IndiaT3T4[!(IndiaT3T4$t1octyp==4),]
+
+
+# recode date 
+IndiaT3T4$t1date_7[IndiaT3T4$t1date_7 == 2] = 2002
+IndiaT3T4$t1date_7[IndiaT3T4$t1date_7 == 17] = 2017
+IndiaT3T4$t1date_7[IndiaT3T4$t1date_7 == 1] = 2001
+IndiaT3T4$t1date_7[IndiaT3T4$t1date_7 == 19] = 2019
+IndiaT3T4$t1date_7[IndiaT3T4$t1date_7 == 0] = 2000
+IndiaT3T4$t1date_7[IndiaT3T4$t1date_7 == 9] = 2009
+
+# # remove date before 3.5 years 
+# IndiaT3T4 <- IndiaT3T4[!(IndiaT3T4$t1date_7<= 2015),]
+# IndiaT3T4 <- IndiaT3T4[!(IndiaT3T4$t1date_8<= 5),]
+# 
+# # remove those without innovative development 
+# IndiaT3T4 <- IndiaT3T4 %>% separate(t1inno, c("t1inno_1", "t1inno_2", "t1inno_3", "t1inno_4", "t1inno_5")) 
+# IndiaT3T4 <- IndiaT3T4 %>% mutate_at(vars(matches("t1inno")), as.numeric)
+# 
+# IndiaT3T4 <- IndiaT3T4[!(IndiaT3T4$t1inno_1== 4),]
+```
+
+## df 2
+
+```{r}
+## attention check items
+names(IndiaT3T4_2) <- tolower(names(IndiaT3T4_2))
+# attention check items 
+IndiaT3T4_2 <- IndiaT3T4_2 %>% 
+  dplyr::rename(
+    att_1_t2 = t2chal_2,
+    att_2_t2 = t2accri_4,
+    att_3_t2 = t2thriv_7,
+    att_1_t3 = t3chal_2,
+    att_2_t3 = t3accri_4,
+    att_3_t3 = t3thriv_7,
+    att_1_t4 = t4chal_2,
+    att_2_t4 = t4accri_4,
+    att_3_t4 = t4thriv_7)
+
+IndiaT3T4_2 <- IndiaT3T4_2 %>% dplyr::select(-matches("att_._"))
+
+## rename items 
+IndiaT3T4_2 <- IndiaT3T4_2 %>% dplyr::rename(
+  t2chal_2 = t2chal_3,
+  t2chal_3 = t2chal_4,
+  t2accri_4 = t2accri_5,
+  t2accri_5 = t2accri_6,
+  t2accri_6 = t2accri_7,
+  t2thriv_7 = t2thriv_8,
+  t2thriv_8 = t2thriv_9,
+  t2thriv_9 = t2thriv_10,
+  t2thriv_10 = t2thriv_11,
+  t3chal_2 = t3chal_3,
+  t3chal_3 = t3chal_4,
+  t3accri_4 = t3accri_5,
+  t3accri_5 = t3accri_6,
+  t3accri_6 = t3accri_7,
+  t3thriv_7 = t3thriv_8,
+  t3thriv_8 = t3thriv_9,
+  t3thriv_9 = t3thriv_10,
+  t3thriv_10 = t3thriv_11,
+  t4chal_2 = t4chal_3,
+  t4chal_3 = t4chal_4,
+  t4accri_4 = t4accri_5,
+  t4accri_5 = t4accri_6,
+  t4accri_6 = t4accri_7,
+  t4thriv_7 = t4thriv_8,
+  t4thriv_8 = t4thriv_9,
+  t4thriv_9 = t4thriv_10,
+  t4thriv_10 = t4thriv_11,
+)
+
+# remove not self-employed
+IndiaT3T4_2 <- IndiaT3T4_2[!(IndiaT3T4_2$t1octyp==4),]
+
+
+# recode business founded 
+names(IndiaT3T4_2)[names(IndiaT3T4_2) == "t1date_1...9"] <- "t1date_7"
+names(IndiaT3T4_2)[names(IndiaT3T4_2) == "t1date_1...10"] <- "t1date_8"
+
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 1] = 2000
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 3] = 2001
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 5] = 2002
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 7] = 2003
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 9] = 2004
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 11] = 2005
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 13] = 2006
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 15] = 2007
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 17] = 2008
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 19] = 2009
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 21] = 2010
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 23] = 2011
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 25] = 2012
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 27] = 2013
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 29] = 2014
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 31] = 2015
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 33] = 2016
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 35] = 2017
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 37] = 2018
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 39] = 2019
+IndiaT3T4_2$t1date_7[IndiaT3T4_2$t1date_7 == 41] = 2020
+
+
+# # remove date before 3.5 years 
+# IndiaT3T4_2 <- IndiaT3T4_2[!(IndiaT3T4_2$t1date_7<= 2015),]
+# IndiaT3T4_2 <- IndiaT3T4_2[!(IndiaT3T4_2$t1date_8<= 5),]
+# 
+# # remove those without innovative development 
+# IndiaT3T4_2 <- IndiaT3T4_2 %>% separate(t1inno, c("t1inno_1", "t1inno_2", "t1inno_3", "t1inno_4", "t1inno_5")) 
+# IndiaT3T4_2 <- IndiaT3T4_2 %>% mutate_at(vars(matches("t1inno")), as.numeric)
+# 
+# IndiaT3T4_2 <- IndiaT3T4_2[!(IndiaT3T4_2$t1inno_1== 4),]
+```
+
+# Concatenate dfs
+
+```{r}
+library(dplyr)
+# rbind
+names(IndiaT3T4_2) <- tolower(names(IndiaT3T4_2))
+India_df <- plyr::rbind.fill(IndiaT3T4, IndiaT3T4_2)
+```
+
+```{r}
+# change BAS2 items (align with prolific)i
+names(India_df) <- gsub("t1bas2_6", "t1bas2_7", names(India_df))
+names(India_df) <- gsub("t1bas2_5", "t1bas2_6", names(India_df))
+names(India_df) <- gsub("t1bas2_4", "t1bas2_5", names(India_df))
+names(India_df) <- gsub("t1bas2_3", "t1bas2_4", names(India_df))
+names(India_df) <- gsub("t1bas2_2", "t1bas2_3", names(India_df))
+names(India_df) <- gsub("t1bas2_1", "t1bas2_2", names(India_df))
+
+## Select columns
+df_demo_india <- India_df %>% dplyr::select(matches("t1octyp|t1octyp.|t1expt_7|t1senr|t1found|t1date_7|t1date_8|t1inno|t1owner|t1coown|t1coownn_4|t1perown_1|t1func|t1mbus|t1mbusn_1|t1indu|t1prod|t1opnec|t1count|t1age_4|t1sex|t1lang|t1edu|t1child|t1chin|t2emp|t2empn_1|t2act.|t2sumcap|t2capit|t2how_.|t2hod_.|t.corona_1"))
+
+error_df_india <- India_df %>% dplyr::select(matches("t.error|t.errser_.|t.errsel|t.errper_.|t.errpre_.|t.errund_."))
+
+# adjust error variable
+error_df_india <- error_df_india %>% separate(t1error, c("t1error_1", "t1error_2", "t1error_3", "t1error_4", "t1error_5", "t1error_6", "t1error_7", "t1error_8", "t1error_9"))
+
+error_df_india$t1error_1 <- ifelse(error_df_india$t1error_1 == '1' | error_df_india$t1error_2 == '1', '1', NA)
+error_df_india$t1error_2 <- ifelse(error_df_india$t1error_1 == '2' | error_df_india$t1error_2 == '2' | error_df_india$t1error_3 == '2' | error_df_india$t1error_4 == '2' | error_df_india$t1error_5 == '2' | error_df_india$t1error_6 == '2' | error_df_india$t1error_7 == '2' | error_df_india$t1error_8 == '2' | error_df_india$t1error_9 == '2', '1', NA)
+error_df_india$t1error_3 <- ifelse(error_df_india$t1error_1 == '3' | error_df_india$t1error_2 == '3' | error_df_india$t1error_3 == '3' | error_df_india$t1error_4 == '3' | error_df_india$t1error_5 == '3' | error_df_india$t1error_6 == '3' | error_df_india$t1error_7 == '3' | error_df_india$t1error_8 == '3' | error_df_india$t1error_9 == '3', '1', NA)
+error_df_india$t1error_4 <- ifelse(error_df_india$t1error_1 == '4' | error_df_india$t1error_2 == '4' | error_df_india$t1error_3 == '4' | error_df_india$t1error_4 == '4' | error_df_india$t1error_5 == '4' | error_df_india$t1error_6 == '4' | error_df_india$t1error_7 == '4' | error_df_india$t1error_8 == '4' | error_df_india$t1error_9 == '4', '1', NA)
+error_df_india$t1error_5 <- ifelse(error_df_india$t1error_1 == '5' | error_df_india$t1error_2 == '5' | error_df_india$t1error_3 == '5' | error_df_india$t1error_4 == '5' | error_df_india$t1error_5 == '5' | error_df_india$t1error_6 == '5' | error_df_india$t1error_7 == '5' | error_df_india$t1error_8 == '5' | error_df_india$t1error_9 == '5', '1', NA)
+error_df_india$t1error_6 <- ifelse(error_df_india$t1error_1 == '6' | error_df_india$t1error_2 == '6' | error_df_india$t1error_3 == '6' | error_df_india$t1error_4 == '6' | error_df_india$t1error_5 == '6' | error_df_india$t1error_6 == '6' | error_df_india$t1error_7 == '6' | error_df_india$t1error_8 == '6' | error_df_india$t1error_9 == '6', '1', NA)
+error_df_india$t1error_7 <- ifelse(error_df_india$t1error_1 == '7' | error_df_india$t1error_2 == '7' | error_df_india$t1error_3 == '7' | error_df_india$t1error_4 == '7' | error_df_india$t1error_5 == '7' | error_df_india$t1error_6 == '7' | error_df_india$t1error_7 == '7' | error_df_india$t1error_8 == '7' | error_df_india$t1error_9 == '7', '1', NA)
+error_df_india$t1error_8 <- ifelse(error_df_india$t1error_1 == '8' | error_df_india$t1error_2 == '8' | error_df_india$t1error_3 == '8' | error_df_india$t1error_4 == '8' | error_df_india$t1error_5 == '8' | error_df_india$t1error_6 == '8' | error_df_india$t1error_7 == '8' | error_df_india$t1error_8 == '8' | error_df_india$t1error_9 == '8', '1', NA)
+error_df_india$t1error_9 <- ifelse(error_df_india$t1error_1 == '9' | error_df_india$t1error_2 == '9' | error_df_india$t1error_3 == '9' | error_df_india$t1error_4 == '9' | error_df_india$t1error_5 == '9' | error_df_india$t1error_6 == '9' | error_df_india$t1error_7 == '9' | error_df_india$t1error_8 == '9' | error_df_india$t1error_9 == '9', '1', NA)
+
+error_df_india <- error_df_india %>% separate(t2error, c("t2error_1", "t2error_2", "t2error_3", "t2error_4", "t2error_5", "t2error_6", "t2error_7", "t2error_8", "t2error_9"))
+error_df_india$t2error_1 <- ifelse(error_df_india$t2error_1 == '1' | error_df_india$t2error_2 == '1', '1', NA)
+error_df_india$t2error_2 <- ifelse(error_df_india$t2error_1 == '2' | error_df_india$t2error_2 == '2' | error_df_india$t2error_3 == '2' | error_df_india$t2error_4 == '2' | error_df_india$t2error_5 == '2' | error_df_india$t2error_6 == '2' | error_df_india$t2error_7 == '2' | error_df_india$t2error_8 == '2' | error_df_india$t2error_9 == '2', '1', NA)
+error_df_india$t2error_3 <- ifelse(error_df_india$t2error_1 == '3' | error_df_india$t2error_2 == '3' | error_df_india$t2error_3 == '3' | error_df_india$t2error_4 == '3' | error_df_india$t2error_5 == '3' | error_df_india$t2error_6 == '3' | error_df_india$t2error_7 == '3' | error_df_india$t2error_8 == '3' | error_df_india$t2error_9 == '3', '1', NA)
+error_df_india$t2error_4 <- ifelse(error_df_india$t2error_1 == '4' | error_df_india$t2error_2 == '4' | error_df_india$t2error_3 == '4' | error_df_india$t2error_4 == '4' | error_df_india$t2error_5 == '4' | error_df_india$t2error_6 == '4' | error_df_india$t2error_7 == '4' | error_df_india$t2error_8 == '4' | error_df_india$t2error_9 == '4', '1', NA)
+error_df_india$t2error_5 <- ifelse(error_df_india$t2error_1 == '5' | error_df_india$t2error_2 == '5' | error_df_india$t2error_3 == '5' | error_df_india$t2error_4 == '5' | error_df_india$t2error_5 == '5' | error_df_india$t2error_6 == '5' | error_df_india$t2error_7 == '5' | error_df_india$t2error_8 == '5' | error_df_india$t2error_9 == '5', '1', NA)
+error_df_india$t2error_6 <- ifelse(error_df_india$t2error_1 == '6' | error_df_india$t2error_2 == '6' | error_df_india$t2error_3 == '6' | error_df_india$t2error_4 == '6' | error_df_india$t2error_5 == '6' | error_df_india$t2error_6 == '6' | error_df_india$t2error_7 == '6' | error_df_india$t2error_8 == '6' | error_df_india$t2error_9 == '6', '1', NA)
+error_df_india$t2error_7 <- ifelse(error_df_india$t2error_1 == '7' | error_df_india$t2error_2 == '7' | error_df_india$t2error_3 == '7' | error_df_india$t2error_4 == '7' | error_df_india$t2error_5 == '7' | error_df_india$t2error_6 == '7' | error_df_india$t2error_7 == '7' | error_df_india$t2error_8 == '7' | error_df_india$t2error_9 == '7', '1', NA)
+error_df_india$t2error_8 <- ifelse(error_df_india$t2error_1 == '8' | error_df_india$t2error_2 == '8' | error_df_india$t2error_3 == '8' | error_df_india$t2error_4 == '8' | error_df_india$t2error_5 == '8' | error_df_india$t2error_6 == '8' | error_df_india$t2error_7 == '8' | error_df_india$t2error_8 == '8' | error_df_india$t2error_9 == '8', '1', NA)
+error_df_india$t2error_9 <- ifelse(error_df_india$t2error_1 == '9' | error_df_india$t2error_2 == '9' | error_df_india$t2error_3 == '9' | error_df_india$t2error_4 == '9' | error_df_india$t2error_5 == '9' | error_df_india$t2error_6 == '9' | error_df_india$t2error_7 == '9' | error_df_india$t2error_8 == '9' | error_df_india$t2error_9 == '9', '1', NA)
+
+error_df_india <- error_df_india %>% separate(t3error, c("t3error_1", "t3error_2", "t3error_3", "t3error_4", "t3error_5", "t3error_6", "t3error_7", "t3error_8", "t3error_9"))
+error_df_india$t3error_1 <- ifelse(error_df_india$t3error_1 == '1' | error_df_india$t3error_2 == '1', '1', NA)
+error_df_india$t3error_2 <- ifelse(error_df_india$t3error_1 == '2' | error_df_india$t3error_2 == '2' | error_df_india$t3error_3 == '2' | error_df_india$t3error_4 == '2' | error_df_india$t3error_5 == '2' | error_df_india$t3error_6 == '2' | error_df_india$t3error_7 == '2' | error_df_india$t3error_8 == '2' | error_df_india$t3error_9 == '2', '1', NA)
+error_df_india$t3error_3 <- ifelse(error_df_india$t3error_1 == '3' | error_df_india$t3error_2 == '3' | error_df_india$t3error_3 == '3' | error_df_india$t3error_4 == '3' | error_df_india$t3error_5 == '3' | error_df_india$t3error_6 == '3' | error_df_india$t3error_7 == '3' | error_df_india$t3error_8 == '3' | error_df_india$t3error_9 == '3', '1', NA)
+error_df_india$t3error_4 <- ifelse(error_df_india$t3error_1 == '4' | error_df_india$t3error_2 == '4' | error_df_india$t3error_3 == '4' | error_df_india$t3error_4 == '4' | error_df_india$t3error_5 == '4' | error_df_india$t3error_6 == '4' | error_df_india$t3error_7 == '4' | error_df_india$t3error_8 == '4' | error_df_india$t3error_9 == '4', '1', NA)
+error_df_india$t3error_5 <- ifelse(error_df_india$t3error_1 == '5' | error_df_india$t3error_2 == '5' | error_df_india$t3error_3 == '5' | error_df_india$t3error_4 == '5' | error_df_india$t3error_5 == '5' | error_df_india$t3error_6 == '5' | error_df_india$t3error_7 == '5' | error_df_india$t3error_8 == '5' | error_df_india$t3error_9 == '5', '1', NA)
+error_df_india$t3error_6 <- ifelse(error_df_india$t3error_1 == '6' | error_df_india$t3error_2 == '6' | error_df_india$t3error_3 == '6' | error_df_india$t3error_4 == '6' | error_df_india$t3error_5 == '6' | error_df_india$t3error_6 == '6' | error_df_india$t3error_7 == '6' | error_df_india$t3error_8 == '6' | error_df_india$t3error_9 == '6', '1', NA)
+error_df_india$t3error_7 <- ifelse(error_df_india$t3error_1 == '7' | error_df_india$t3error_2 == '7' | error_df_india$t3error_3 == '7' | error_df_india$t3error_4 == '7' | error_df_india$t3error_5 == '7' | error_df_india$t3error_6 == '7' | error_df_india$t3error_7 == '7' | error_df_india$t3error_8 == '7' | error_df_india$t3error_9 == '7', '1', NA)
+error_df_india$t3error_8 <- ifelse(error_df_india$t3error_1 == '8' | error_df_india$t3error_2 == '8' | error_df_india$t3error_3 == '8' | error_df_india$t3error_4 == '8' | error_df_india$t3error_5 == '8' | error_df_india$t3error_6 == '8' | error_df_india$t3error_7 == '8' | error_df_india$t3error_8 == '8' | error_df_india$t3error_9 == '8', '1', NA)
+error_df_india$t3error_9 <- ifelse(error_df_india$t3error_1 == '9' | error_df_india$t3error_2 == '9' | error_df_india$t3error_3 == '9' | error_df_india$t3error_4 == '9' | error_df_india$t3error_5 == '9' | error_df_india$t3error_6 == '9' | error_df_india$t3error_7 == '9' | error_df_india$t3error_8 == '9' | error_df_india$t3error_9 == '9', '1', NA)
+
+error_df_india <- error_df_india %>% separate(t4error, c("t4error_1", "t4error_2", "t4error_3", "t4error_4", "t4error_5", "t4error_6", "t4error_7", "t4error_8", "t4error_9"))
+error_df_india$t4error_1 <- ifelse(error_df_india$t4error_1 == '1' | error_df_india$t4error_2 == '1', '1', NA)
+error_df_india$t4error_2 <- ifelse(error_df_india$t4error_1 == '2' | error_df_india$t4error_2 == '2' | error_df_india$t4error_3 == '2' | error_df_india$t4error_4 == '2' | error_df_india$t4error_5 == '2' | error_df_india$t4error_6 == '2' | error_df_india$t4error_7 == '2' | error_df_india$t4error_8 == '2' | error_df_india$t4error_9 == '2', '1', NA)
+error_df_india$t4error_3 <- ifelse(error_df_india$t4error_1 == '3' | error_df_india$t4error_2 == '3' | error_df_india$t4error_3 == '3' | error_df_india$t4error_4 == '3' | error_df_india$t4error_5 == '3' | error_df_india$t4error_6 == '3' | error_df_india$t4error_7 == '3' | error_df_india$t4error_8 == '3' | error_df_india$t4error_9 == '3', '1', NA)
+error_df_india$t4error_4 <- ifelse(error_df_india$t4error_1 == '4' | error_df_india$t4error_2 == '4' | error_df_india$t4error_3 == '4' | error_df_india$t4error_4 == '4' | error_df_india$t4error_5 == '4' | error_df_india$t4error_6 == '4' | error_df_india$t4error_7 == '4' | error_df_india$t4error_8 == '4' | error_df_india$t4error_9 == '4', '1', NA)
+error_df_india$t4error_5 <- ifelse(error_df_india$t4error_1 == '5' | error_df_india$t4error_2 == '5' | error_df_india$t4error_3 == '5' | error_df_india$t4error_4 == '5' | error_df_india$t4error_5 == '5' | error_df_india$t4error_6 == '5' | error_df_india$t4error_7 == '5' | error_df_india$t4error_8 == '5' | error_df_india$t4error_9 == '5', '1', NA)
+error_df_india$t4error_6 <- ifelse(error_df_india$t4error_1 == '6' | error_df_india$t4error_2 == '6' | error_df_india$t4error_3 == '6' | error_df_india$t4error_4 == '6' | error_df_india$t4error_5 == '6' | error_df_india$t4error_6 == '6' | error_df_india$t4error_7 == '6' | error_df_india$t4error_8 == '6' | error_df_india$t4error_9 == '6', '1', NA)
+error_df_india$t4error_7 <- ifelse(error_df_india$t4error_1 == '7' | error_df_india$t4error_2 == '7' | error_df_india$t4error_3 == '7' | error_df_india$t4error_4 == '7' | error_df_india$t4error_5 == '7' | error_df_india$t4error_6 == '7' | error_df_india$t4error_7 == '7' | error_df_india$t4error_8 == '7' | error_df_india$t4error_9 == '7', '1', NA)
+error_df_india$t4error_8 <- ifelse(error_df_india$t4error_1 == '8' | error_df_india$t4error_2 == '8' | error_df_india$t4error_3 == '8' | error_df_india$t4error_4 == '8' | error_df_india$t4error_5 == '8' | error_df_india$t4error_6 == '8' | error_df_india$t4error_7 == '8' | error_df_india$t4error_8 == '8' | error_df_india$t4error_9 == '8', '1', NA)
+error_df_india$t4error_9 <- ifelse(error_df_india$t4error_1 == '9' | error_df_india$t4error_2 == '9' | error_df_india$t4error_3 == '9' | error_df_india$t4error_4 == '9' | error_df_india$t4error_5 == '9' | error_df_india$t4error_6 == '9' | error_df_india$t4error_7 == '9' | error_df_india$t4error_8 == '9' | error_df_india$t4error_9 == '9', '1', NA)
+
+df_scales_india <- India_df %>% dplyr::select(matches("t.chal_.|t.threat_.|t.hindr_.|t.accri_.|t.exploi_.|t.explor_.|t.bis_.|t.bas._.|t.gopro_.|t.thriv_."))
+```
+
+# Error summaries
+
+```{r error_count,include = F}
+# Add variable with count number of errors 
+library(tidyverse)#
+
+error_df <- error_df_india %>% dplyr::select(matches("t.error|t.errser_.|t.errsel|t.errper_.|t.errpre_.|t.errund_."))
+
+error_df <- error_df_india %>% dplyr::select(-matches("ser_._text|errsel_._text|errper_._text|errpre_._text|email")) 
+
+## Error variables prolific
+# assign errser for error selected
+names(error_df)
+error_df$Errser <- mapply("[", asplit(error_df[11:19], 1), error_df$t1errsel)
+error_df$Errser
+
+# error performance score
+error_df$Errper <- mapply("[", asplit(error_df[21:29], 1), error_df$t1errsel)
+error_df$Errper
+
+
+# Error prevention scores
+error_df$Errpre <- mapply("[", asplit(error_df[30:38], 1), error_df$t1errsel)
+error_df$Errpre
+
+### Error understanding 
+error_df$Errund <- error_df$t1errund_1
+error_df$Errsel <- error_df$t1errsel
+
+Err_sum <- error_df %>% dplyr::select(Errsel, Errser, Errper, Errpre)
+
+df_scales_india <- cbind(Err_sum, df_scales_india)
+
+```
+
+
+```{r recode, include = F}
+## recode
+df_scales_india <-
+df_scales_india %>%
+mutate_at(vars(c("t1accri_2", "t1bis_4", "t1bis_6", "t1thriv_4","t1thriv_10",
+                 "t2accri_2","t2thriv_4","t2thriv_10",
+                 "t3accri_2","t3thriv_4","t3thriv_10",
+                 "t4accri_2", "t1bis_4", "t4bis_6", "t4thriv_4", "t4thriv_10"
+                 )),
+            ~ (8 - .))
+
+df_scales_india <-
+df_scales_india %>%
+mutate_at(vars(c("t1gopro_2", "t1gopro_4",
+                 "t2gopro_2", "t2gopro_4",
+                 "t3gopro_2", "t3gopro_4",
+                 "t4gopro_2", "t4gopro_4")),
+            ~ (6 - .))
+
+# delete double bas item
+df_scales_india <- df_scales_india %>% dplyr::select(-matches("t1bas2_1|email"))
+```
+
+
+```{r rename, include = F}
+names(df_scales_india) <- gsub("bas1_1", "basre_1", names(df_scales_india))
+names(df_scales_india) <- gsub("bas1_2", "basre_2", names(df_scales_india))
+names(df_scales_india) <- gsub("bas1_3", "basre_3", names(df_scales_india))
+names(df_scales_india) <- gsub("bas1_4", "basre_4", names(df_scales_india))
+names(df_scales_india) <- gsub("bas1_5", "basre_5", names(df_scales_india))
+names(df_scales_india) <- gsub("bas1_6", "basdr_1", names(df_scales_india))
+names(df_scales_india) <- gsub("bas1_7", "basdr_2", names(df_scales_india))
+
+names(df_scales_india) <- gsub("t1bas2_2", "t1basdr_3", names(df_scales_india))
+names(df_scales_india) <- gsub("t1bas2_3", "t1basdr_4", names(df_scales_india))
+names(df_scales_india) <- gsub("t1bas2_4", "t1basfu_1", names(df_scales_india))
+names(df_scales_india) <- gsub("t1bas2_5", "t1basfu_2", names(df_scales_india))
+names(df_scales_india) <- gsub("t1bas2_6", "t1basfu_3", names(df_scales_india))
+names(df_scales_india) <- gsub("t1bas2_7", "t1basfu_4", names(df_scales_india))
+
+names(df_scales_india) <- gsub("bas2_1", "basdr_3", names(df_scales_india))
+names(df_scales_india) <- gsub("bas2_2", "basdr_4", names(df_scales_india))
+names(df_scales_india) <- gsub("bas2_3", "basfu_1", names(df_scales_india))
+names(df_scales_india) <- gsub("bas2_4", "basfu_2", names(df_scales_india))
+names(df_scales_india) <- gsub("bas2_5", "basfu_3", names(df_scales_india))
+names(df_scales_india) <- gsub("bas2_6", "basfu_4", names(df_scales_india))
+
+vita_lean_df <- df_scales_india %>% dplyr::select(matches("thriv"))
+names(vita_lean_df) <- gsub("thriv_10", "vita_5", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_1", "learn_1", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_2", "learn_2", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_3", "learn_3", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_4", "learn_4", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_5", "learn_5", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_6", "vita_1", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_7", "vita_2", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_8", "vita_3", names(vita_lean_df))
+names(vita_lean_df) <- gsub("thriv_9", "vita_4", names(vita_lean_df))
+
+
+```
+
+
+```{r demo_recode_1, include = F}
+## Demos dataframe
+## time since business foundation 
+library(zoo)
+library(lubridate)
+df_demo_india$t1timebuiss <- as.yearmon(paste(df_demo_india$t1date_7, df_demo_india$t1date_8), "%Y %m")
+df_demo_india$t1timebuiss <- as_date(df_demo_india$t1timebuiss)
+df_demo_india$start_t1 <- as.Date("2019-11-15")
+
+df_demo_india$t1timebuiss <- difftime(df_demo_india$start_t1, df_demo_india$t1timebuiss, UTC,
+         units = c("days"))
+
+df_demo_india$t1timebuiss[ df_demo_india$t1timebuiss > 18250 ] <- NA
+df_demo_india$t1timebuiss[ df_demo_india$t1timebuiss < 0 ] <- NA
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1date"))
+
+
+## recode occupational function
+df_demo_india$t1func[df_demo_india$t1func_5_text == "president/CEO"] = 1
+df_demo_india$t1func[df_demo_india$t1func_5_text == "Finance director"] = 1
+df_demo_india$t1func[df_demo_india$t1func_5_text == "CFO"] = 1
+df_demo_india$t1func[df_demo_india$t1func_5_text == "Creative Director"] = 2
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1func_5_text"))
+
+## recode industry
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "HR"] = 2
+
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Personal Services"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "governance"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Dog walking"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Self-Improvement"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Event planning"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Hospitality, guest house"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Services"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Pet Services"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Consultancy"] = 3
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Beauty"] = 3
+
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Service customising retail goods"] = 4
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Retail"] = 4
+
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "transport"] = 5
+
+# new category = 8 (Arts, Fashion & Entertainment)
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Entertainment/Music"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "entertainment"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Arts"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Entertainment"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Media"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "FASHION"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "art"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Creative"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Arts"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Creative Arts"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Art"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Art & Entertainment"] = 8
+df_demo_india$t1indu[df_demo_india$t1indu_7_text == "Design"] = 8
+
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1indu_7_text"))
+
+## remove language text 
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1lang_4_text"))
+
+## recode education 
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "Masters Degree"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "Masters degree"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "post grad diploma"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "Some upper secondary school"] = 2
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "MA"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "A Levels"] = 2
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "Master's Degree"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "masters degree"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "University Diploma"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "Masters degree"] = 4
+df_demo_india$t1edu[df_demo_india$t1edu_6_text == "Technical College"] = 4
+
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1edu_6_text"))
+
+## recode country 
+# 1 = USA
+# 2 = UK
+# 3 = Canada 
+# 4 = Italy
+# 5 = Hungary
+# 6 = Poland
+# 7 = Mexico
+# 8 = Portugal
+# 9 = Austria
+# 10 = Germany
+# 11 = Slovenia
+# 12 = Netherlands
+# 13 = Sweden
+# 14 = Czech Republic
+# 15 = Malta
+# 16 = Greece
+# 17 = France
+# 18 = Spain
+# 19 = Israel
+# 20 = Estonia
+# 21 = Brazil 
+# 22 = Benin
+# 23 = Australia
+# 24 = Latvia
+# 25 = Korea
+# 26 = Norway
+# 27 = New Zealand
+# 28 = United Arab Emirates
+
+df_demo_india$t1count[df_demo_india$t1count == 187] = "USA"
+df_demo_india$t1count[df_demo_india$t1count == 185] = "UK"
+df_demo_india$t1count[df_demo_india$t1count == 31] = "Canada"
+df_demo_india$t1count[df_demo_india$t1count == 84] = "Italy"
+df_demo_india$t1count[df_demo_india$t1count == 76] = "Hungary"
+df_demo_india$t1count[df_demo_india$t1count == 137] = "Poland"
+df_demo_india$t1count[df_demo_india$t1count == 111] = "O_Mexico"
+df_demo_india$t1count[df_demo_india$t1count == 138] = "Portugal"
+df_demo_india$t1count[df_demo_india$t1count == 10] = "Austria"
+df_demo_india$t1count[df_demo_india$t1count == 65] = "Germany"
+df_demo_india$t1count[df_demo_india$t1count == 158] = "Slovenia"
+df_demo_india$t1count[df_demo_india$t1count == 122] = "Netherlands"
+df_demo_india$t1count[df_demo_india$t1count == 168] = "Sweden"
+df_demo_india$t1count[df_demo_india$t1count == 45] = "Czech Republic"
+df_demo_india$t1count[df_demo_india$t1count == 107] = "Malta"
+df_demo_india$t1count[df_demo_india$t1count == 67] = "Greece"
+df_demo_india$t1count[df_demo_india$t1count == 61] = "France"
+df_demo_india$t1count[df_demo_india$t1count == 163] = "Spain"
+df_demo_india$t1count[df_demo_india$t1count == 83] = "Israel"
+df_demo_india$t1count[df_demo_india$t1count == 57] = "Estonia"
+df_demo_india$t1count[df_demo_india$t1count == 24] = "O_Brazil"
+df_demo_india$t1count[df_demo_india$t1count == 19] = "O_Benin"
+df_demo_india$t1count[df_demo_india$t1count == 9] = "Australia"
+df_demo_india$t1count[df_demo_india$t1count == 94] = "Latvia"
+df_demo_india$t1count[df_demo_india$t1count == 140] = "O_Korea"
+df_demo_india$t1count[df_demo_india$t1count == 128] = "Norway"
+df_demo_india$t1count[df_demo_india$t1count == 123] = "New Zealand"
+df_demo_india$t1count[df_demo_india$t1count == 184] = "O_United Arab Emirates"
+df_demo_india$t1count[df_demo_india$t1count == 78] = "India"
+df_demo_india$t1count[df_demo_india$t1count == 5] = "O_Angola"
+
+
+library(plotly)
+table(df_demo_india$t1count, useNA="always")
+
+## remove source money text 
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t2capit_8_text"))
+
+## remove lang_text 
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1lang_3_text"))
+
+## make timebuiss numeric 
+df_demo_india$t1timebuiss <- as.numeric(df_demo_india$t1timebuiss)
+
+## recode occupation past 
+# new category: Student = 7
+df_demo_india$t1octypp[df_demo_india$t1octypp_6_text == "Student"] = 7
+df_demo_india$t1octypp[df_demo_india$t1octypp_6_text == "student"] = 7
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1octypp_6_text"))
+
+## remove start_t1
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("start_t1"))
+
+## remove found (only 1!) 
+df_demo_india <- df_demo_india %>% dplyr::select(-matches("t1found"))
+
+## demo numeric
+df_demo_india_num <- df_demo_india %>% dplyr::select(-matches("t1prod|t1id"))
+
+df_scales_india <- data.frame(cbind(df_demo_india_num, df_scales_india))
+
+```
+
+
+```{r corr, include = F}
+
+df_scales_india$t1accriwd_1 <- df_scales_india$t1accri_1
+df_scales_india$t1accriwd_2 <- df_scales_india$t1accri_4
+df_scales_india$t1accriwd_3 <- df_scales_india$t1accri_6
+
+library(sjlabelled)
+
+df_demo_num_india <- df_scales_india %>% dplyr::select(matches("t.duration|t1octyp|t1octyp.|t1expt_7|t1senr|t1found|t1date_7|t1date_8|t1inno|t1owner|t1coown|t1coownn_4|t1perown_1|t1func|t1mbus|t1mbusn_1|t1indu|t1opnec|t1count|t1age_4|t1sex|t1lang|t1edu|t1child|t1chin|t2emp|t2empn_1|t2act.|t2sumcap|t2capit|t2how_.|t2hod_.|t4_fundr|t4_fundr.|t1brex|t1timebuiss|t4fundr2|err")) %>% remove_all_labels(.)
+
+df_scales_new_india <- df_scales_india %>% dplyr::select(-matches("t1id|thriv_|t.duration|t1octyp|t1octyp.|t1expt_7|t1senr|t1found|t1date_7|t1date_8|t1inno|t1owner|t1coown|t1coownn_4|t1perown_1|t1func|t1mbus|t1mbusn_1|t1indu|t1prod|t1opnec|t1count|t1age_4|t1sex|t1lang|t1edu|t1child|t4fundr|t1chin|t2emp|t2empn_1|t2act.|t2sumcap|t2capit|t2how_.|t2hod_.|t4_fundr.|t1brex|t1timebuiss|t4fundr2|err|Err|envdyn|corona", ignore.case = F))
+comp_split_india <- df_scales_new_india %>% remove_all_labels(.) %>%
+  split.default(sub("_.", "", names(df_scales_new_india))) 
+
+comp_india <- purrr::map(comp_split_india, ~ multicon::composite(.x, nomiss = 0.8), data = .x)
+alph_india <- purrr::map(comp_split_india, ~ psych::alpha(.x), data = .x) %>%
+  purrr::map(~ .x$total)
+
+comp_df_india <- do.call("cbind", comp_india) %>% cbind(., df_demo_num_india) %>% remove_all_labels(.)
+alph_df_india <- do.call("rbind", alph_india) %>% round(., 2)
+```
+

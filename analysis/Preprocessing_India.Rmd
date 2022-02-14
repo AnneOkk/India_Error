@@ -1,0 +1,269 @@
+---
+title: "Analyses_prolific_error"
+author: "Anne"
+date: "4/3/2020"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '1'
+lang: en-US
+editor_options: 
+  chunk_output_type: inline
+  fig_caption: yes
+  fig_width: 4 
+  fig_height: 4 
+---
+
+# Preparation
+
+```{r loading_packs, eval = TRUE}
+knitr::opts_chunk$set(echo = FALSE, results = TRUE, message = FALSE, warning = FALSE, error = FALSE)
+                      
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages <- c("mediation", "foreign", "tidyverse","stargazer","multicon", "ggplot2", "plyr", "reshape2", "readxl", 
+              "scales", "grid", "tidyLPA", "Rcpp", "naniar", "dplyr", "car", "mice", "semTools",
+              "rstudioapi", "labelled", "modi", "semPlot", "kulife", "interactions", "emmeans", "splitstackshape")
+ipak(packages)
+```
+
+```{r setwd, eval = FALSE}
+library(rstudioapi)
+set_wd <- function() {
+   current_path <- getActiveDocumentContext()$path
+   setwd(dirname(current_path ))
+   print( getwd() )
+ }
+set_wd()
+
+getwd()
+```
+
+
+# India Study 
+
+```{r eval = TRUE}
+library(readxl)
+getwd()
+files <- dir(getwd(), pattern = ".*India.xlsx$", full.names = FALSE) 
+files
+df_list <- vector("list", length(files))
+names(df_list) <- files
+read_in <- function(df = files) {
+  for (fname in df) {
+    df_list[[fname]] <- read_excel(fname) 
+  }
+    names(df_list) <- paste0("data_", gsub(".xlsx","",names(df_list)))
+    ff <- df_list
+}
+
+df_list <- read_in(files)
+
+list2env(df_list,envir=.GlobalEnv)
+
+```
+
+## India 1 
+
+```{r eval = TRUE}
+# Transform ID Variable
+
+data_T1_India = transform(data_T1_India, newcol=paste(T1Code_1, T1Code_2, T1Code_3, T1Code_4, sep="_") %>%
+                            as.character(.)) 
+
+colnames(data_T1_India)[colnames(data_T1_India) == "Duration..in.seconds."] <- "t1duration"
+
+data_T2_India = transform(data_T2_India, newcol=paste(Q683_1, Q683_2, Q683_3, Q683_4, sep="_") %>%
+      as.character(.))
+colnames(data_T2_India)[colnames(data_T2_India) == "Duration..in.seconds."] <- "t2duration"
+
+data_T3_India = transform(data_T3_India, newcol=paste(T3_Code_1, T3_Code_2, T3_Code_3, T3_Code_4, sep="_") %>%
+                      as.character(.))
+colnames(data_T3_India)[colnames(data_T3_India) == "Duration..in.seconds."] <- "t3duration"
+
+data_T4_India = transform(data_T4_India, newcol=paste(T4Code_1, T4Code_2, T4Code_3, T4Code_4, sep="_") %>%
+                      as.character(.)) %>% dplyr::rename(
+                        t4errsel = T4erreff, 
+                        t4errsel_9_TEXT = T4erreff_9_TEXT
+                      )
+names(data_T4_India) <- gsub("erreffort", "errpre", names(data_T4_India), fixed = TRUE)
+colnames(data_T4_India)[colnames(data_T4_India) == "Duration..in.seconds."] <- "t4duration"
+
+
+## Match IDs 
+# Assign correct T1 ID
+library(dplyr)
+matched_ID <- read_excel("Matched_man.xlsx")
+sorted_matchedID <- arrange(matched_ID, T1) %>% 
+  dplyr::rename(Goal_ID = T1)
+
+# T1
+data_T1_India$newcol <- toupper(data_T1_India$newcol)
+data_T1_India$newcol[ data_T1_India$newcol == "NA_NA_NA_NA" ] <- NA
+
+# T2
+data_T2_India$newcol <- toupper(data_T2_India$newcol) %>% as.character(.)
+T2_match <- arrange(data_T2_India,newcol)
+k <- match(T2_match$newcol, unlist(sorted_matchedID[3])) 
+j <- !is.na(k)
+
+T2_match$newcol[j] <- sorted_matchedID$Goal_ID[k[j]]
+T2_match$newcol[ T2_match$newcol == "NA_NA_NA_NA" ] <- NA
+T2_match <- T2_match[!is.na(T2_match$newcol), ]
+
+# T3
+data_T3_India$newcol <- toupper(data_T3_India$newcol)
+T3_match <- arrange(data_T3_India,newcol)
+i <- match(T3_match$newcol, unlist(sorted_matchedID[4])) 
+j <- !is.na(i)
+T3_match$newcol[j] <- sorted_matchedID$Goal_ID[i[j]]
+T3_match$newcol[ T3_match$newcol == "NA_NA_NA_NA" ] <- NA
+T3_match <- T3_match[!is.na(T3_match$newcol), ]
+
+# T4
+data_T4_India$newcol <- toupper(data_T4_India$newcol)
+T4_match <- arrange(data_T4_India,newcol)
+i <- match(T4_match$newcol, unlist(sorted_matchedID[5])) 
+j <- !is.na(i)
+T4_match$newcol[j] <- sorted_matchedID$Goal_ID[i[j]]
+T4_match$newcol[ T4_match$newcol == "NA_NA_NA_NA" ] <- NA
+T4_match <- T4_match[!is.na(T4_match$newcol), ]
+
+# left join
+## Left join 
+#eturn all rows from x, and all columns from x and y. Rows in x with no match in y will have NA values in the new columns. If there are multiple matches between x and y, all combinations of the matches are returned
+
+left_joinT1T2 = left_join(data_T1_India, T2_match, by = "newcol") %>% 
+  plyr::rename(c("T1email_1" = "EMAIL", "StartDate.x" = "Start_T1","EndDate.x" = "End_T1" ,
+                  "StartDate.y" = "Start_T2", "EndDate.y" = "End_T2"))
+
+left_joinT2T3 <- left_join(left_joinT1T2, T3_match, by = "newcol") %>%
+  plyr::rename(c( "StartDate" = "Start_T3","EndDate" = "End_T3"))
+
+left_joinT3T4 <- left_join(left_joinT2T3, T4_match, by = "newcol") %>%
+  plyr::rename(c( "StartDate" = "Start_T4","EndDate" = "End_T4"))
+
+
+# remove duplicates by IP address
+left_joinT3T4 <- left_joinT3T4[!duplicated(left_joinT3T4$IPAddress.x),]
+# remove duplicates by code
+left_joinT3T4 <-
+left_joinT3T4 %>% 
+  group_by(newcol) %>%
+  fill(c(2:154, 156:ncol(left_joinT3T4)), .direction = 'up') %>% 
+  ungroup()
+
+# Outlist 
+# Team eamil addresses
+outlist <- read_csv("outlist.csv") %>% pull(EMAILS)
+left_joinT3T4 <- left_joinT3T4[ ! left_joinT3T4$EMAIL %in% outlist, ]
+
+
+# remove all identifying columns
+left_joinT3T4 <- left_joinT3T4 %>% dplyr::select(-dplyr::matches("Consent|Start_|End_|Status|IPAddress|Progress|Finished|Recorded|Response|Name|Email|Reference|Location|Distribution|Language|Code|EMAIL|newcol|SC0|Q683|comment|T1prod"))
+
+# fix column names
+colnames(left_joinT3T4) <- gsub('Q684', 'T2error', colnames(left_joinT3T4), fixed=TRUE)
+colnames(left_joinT3T4) <- gsub('Q685', 'T2errser', colnames(left_joinT3T4), fixed=TRUE)
+colnames(left_joinT3T4) <- gsub('Q686', 'T2errsel', colnames(left_joinT3T4), fixed=TRUE)
+colnames(left_joinT3T4) <- gsub('Q687', 'T2errper', colnames(left_joinT3T4), fixed=TRUE)
+colnames(left_joinT3T4) <- gsub('Q688', 'T2errpre', colnames(left_joinT3T4), fixed=TRUE)
+colnames(left_joinT3T4) <- gsub('Q689', 'T2errund', colnames(left_joinT3T4), fixed=TRUE)
+
+
+### Fill  
+# Paste NA rows and rows with data for same IDs, delete duplicate entries (ID / Email)
+
+library(haven)
+write_sav(left_joinT3T4, "IndiaT3T4.sav")
+```
+
+
+## India 2 
+
+```{r eval = TRUE}
+library(dplyr)
+# Transform ID Variable
+data_T1_2_India = transform(data_T1_2_India, newcol=paste(T1Code_1, T1Code_2, T1Code_3, sep="_") %>%
+                      as.character(.)) 
+colnames(data_T1_2_India)[colnames(data_T1_2_India) == "Duration..in.seconds."] <- "t1duration"
+
+data_T2_2_India = transform(data_T2_2_India, newcol=paste(T2Code_1, T2Code_2, T2Code_3, sep="_") %>%
+      as.character(.))
+
+colnames(data_T2_2_India)[colnames(data_T2_2_India) == "Duration..in.seconds."] <- "t2duration"
+
+data_T3_2_India = transform(data_T3_2_India, newcol=paste(Q679_1, Q679_2, Q679_3, sep="_") %>%
+                      as.character(.))
+
+colnames(data_T3_2_India)[colnames(data_T3_2_India) == "Duration..in.seconds."] <- "t3duration"
+
+data_T4_2_India = transform(data_T4_2_India, newcol=paste(T4Code_1, T4Code_2, T4Code_3, sep="_") %>%
+                      as.character(.)) 
+
+colnames(data_T4_2_India)[colnames(data_T4_2_India) == "Duration..in.seconds."] <- "t4duration"
+
+
+## Delete no fill ins
+
+# T1
+data_T1_2_India$newcol <- toupper(data_T1_2_India$newcol)
+data_T1_2_India$newcol[ data_T1_2_India$newcol == "NA_NA_NA" ] <- NA
+
+# T2
+data_T2_2_India$newcol <- toupper(data_T2_2_India$newcol) %>% as.character(.)
+data_T2_2_India$newcol[ data_T2_2_India$newcol == "NA_NA_NA" ] <- NA
+T2_match <- data_T2_2_India[!is.na(data_T2_2_India$newcol), ]
+
+# T3
+data_T3_2_India$newcol <- toupper(data_T3_2_India$newcol) %>% as.character(.)
+data_T3_2_India$newcol[ data_T3_2_India$newcol == "NA_NA_NA" ] <- NA
+T3_match <- data_T3_2_India[!is.na(data_T3_2_India$newcol),]
+
+# T4
+data_T4_2_India$newcol <- toupper(data_T4_2_India$newcol) %>% as.character(.)
+data_T4_2_India$newcol[ data_T4_2_India$newcol == "NA_NA_NA" ] <- NA
+T4_match <- data_T4_2_India[!is.na(data_T4_2_India$newcol),]
+
+# left join
+## Left join 
+#eturn all rows from x, and all columns from x and y. Rows in x with no match in y will have NA values in the new columns. If there are multiple matches between x and y, all combinations of the matches are returned
+
+left_joinT1T2_2 = left_join(data_T1_2_India, T2_match, by = "newcol") %>% 
+  plyr::rename(c("T1email_1" = "EMAIL", "StartDate.x" = "Start_T1","EndDate.x" = "End_T1" ,
+                  "StartDate.y" = "Start_T2", "EndDate.y" = "End_T2"))
+
+left_joinT2T3_2 <- left_join(left_joinT1T2_2, T3_match, by = "newcol") %>%
+  plyr::rename(c( "StartDate" = "Start_T3","EndDate" = "End_T3"))
+
+
+left_joinT3T4_2 <- left_join(left_joinT2T3_2, T4_match, by = "newcol") %>%
+ plyr::rename(c( "StartDate" = "Start_T4","EndDate" = "End_T4"))
+
+
+# remove duplicates by IP address
+left_joinT3T4_2 <- left_joinT3T4_2[!duplicated(left_joinT3T4_2$IPAddress.x),]
+
+# Outlist 
+# Team eamil addresses
+outlist <- read_csv("outlist.csv") %>% pull(EMAILS)
+left_joinT3T4_2 <- left_joinT3T4_2[ ! left_joinT3T4_2$EMAIL %in% outlist, ]
+
+# remove all identifying columns
+left_joinT3T4_2 <- left_joinT3T4_2 %>% dplyr::select(-dplyr::matches("phonem_|mobile|incu|Consent|Start_|End_|Status|IPAddress|Progress|Finished|Recorded|Response|Name|Email|Reference|Location|Distribution|Language|Code|EMAIL|newcol|SC0|Q683|comment|T1prod|Q679"))
+
+library(haven)
+write_sav(left_joinT3T4_2, "IndiaT3T4_2.sav")
+```
+
+
